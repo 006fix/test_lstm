@@ -1,0 +1,62 @@
+
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from keras.models import Sequential
+from keras.layers import LSTM
+from keras.layers import Dense
+
+
+df = pd.read_csv(r'C:\Users\pyeac\Downloads\test_set.csv', sep=';')
+print(df.shape)
+print(df)
+
+df['var1'] = df['var1'].astype('float32')
+df['var2'] = df['var2'].astype('float32')
+df['var3'] = df['var3'].astype('float32')
+
+scaler = MinMaxScaler(feature_range=(0, 1))
+df[['var1','var2']] = scaler.fit_transform(df[['var1','var2']])
+scaler2 = MinMaxScaler(feature_range=(0, 1))
+df[['var3']] = scaler2.fit_transform(df[['var3']])
+print(df)
+
+values = df.values
+
+scaled_train = values[:120]
+scaled_test = values[120:]
+
+def split_series(input_data, n_steps):
+    x,y = list(), list()
+    for i in range(len(input_data)):
+        end_i = i+n_steps
+        if end_i > len(input_data):
+            break
+        seq_x, seq_y = input_data[i:end_i, :-1], input_data[end_i-1, -1]
+        x.append(seq_x)
+        y.append(seq_y)
+    return np.array(x), np.array(y)
+
+n_steps = 5
+x,y = split_series(scaled_train, n_steps)
+n_features=x.shape[2]
+
+model = Sequential()
+model.add(LSTM(50, activation='sigmoid',input_shape=(n_steps,n_features)))
+model.add(Dense(1))
+model.compile(optimizer='adam',loss='mse')
+
+model.fit(x, y, epochs=500, verbose=1)
+x_check, y_check = split_series(scaled_test, n_steps)
+yhat = model.predict(x_check, verbose=1)
+print(yhat)
+yhat2 = scaler2.inverse_transform(yhat)
+y_check2 = scaler2.inverse_transform(y_check.reshape(-1,1))
+for i in range(len(y_check)):
+    print(f"""for the {i}th value, the true value was {y_check2[i]}, while the predicted value was {yhat2[i]},"
+          a difference of {y_check2[i] - yhat2[i]}""")
+
+
+
+
